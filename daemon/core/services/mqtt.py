@@ -383,7 +383,7 @@ class MqttSnTools(CoreService):
     #  e.g. /tmp/pycore.12345/n1.conf/)
     configs = ("mqtt-sn-tools.conf","mqtt-sn-tools-launch.sh",)
     # list of startup commands, also may be generated during startup
-    startup = ("bash mqtt-sn-tools.sh",)
+    startup = ("bash mqtt-sn-tools-launch.sh mqtt-sn-tools.conf",)
     # list of shutdown commands
     shutdown = ("bash -c \'kill $(cat mqtt-sn-tools.pid)\'")
 
