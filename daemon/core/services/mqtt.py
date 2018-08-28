@@ -1,5 +1,5 @@
 """
-Services for MQTT 
+Services for MQTT
 """
 
 from core.misc.ipaddress import Ipv4Prefix
@@ -43,7 +43,7 @@ class Mosquitto(CoreService):
 # General configuration
 # =================================================================
 
-# Time in seconds to wait before resending an outgoing QoS=1 or 
+# Time in seconds to wait before resending an outgoing QoS=1 or
 # QoS=2 message.
 #retry_interval 20
 
@@ -51,26 +51,26 @@ class Mosquitto(CoreService):
 # Set to 0 to disable the publishing of the $SYS tree.
 #sys_interval 10
 
-# Time in seconds between cleaning the internal message store of 
-# unreferenced messages. Lower values will result in lower memory 
-# usage but more processor time, higher values will have the 
+# Time in seconds between cleaning the internal message store of
+# unreferenced messages. Lower values will result in lower memory
+# usage but more processor time, higher values will have the
 # opposite effect.
-# Setting a value of 0 means the unreferenced messages will be 
+# Setting a value of 0 means the unreferenced messages will be
 # disposed of as quickly as possible.
 #store_clean_interval 10
 
-# Write process id to a file. Default is a blank string which means 
+# Write process id to a file. Default is a blank string which means
 # a pid file shouldn't be written.
 # This should be set to /var/run/mosquitto.pid if mosquitto is
-# being run automatically on boot with an init script and 
+# being run automatically on boot with an init script and
 # start-stop-daemon or similar.
 pid_file ""
 
-# When run as root, drop privileges to this user and its primary 
+# When run as root, drop privileges to this user and its primary
 # group.
 # Leave blank to stay as root, but this is not recommended.
 # If run as a non-root user, this setting has no effect.
-# Note that on Windows this has no effect and so mosquitto should 
+# Note that on Windows this has no effect and so mosquitto should
 # be started by the user you wish it to run as.
 user mosquitto
 
@@ -79,7 +79,7 @@ user mosquitto
 # =================================================================
 
 # IP address/hostname to bind the default listener to. If not
-# given, the default listener will not be bound to a specific 
+# given, the default listener will not be bound to a specific
 # address and so will be accessible to all network interfaces.
 # bind_address ip-address/host name
 #bind_address
@@ -87,11 +87,11 @@ user mosquitto
 # Port to use for the default listener.
 #port 1883
 
-# The maximum number of client connections to allow. This is 
+# The maximum number of client connections to allow. This is
 # a per listener setting.
 # Default is -1, which means unlimited connections.
-# Note that other process limits mean that unlimited connections 
-# are not really possible. Typically the default maximum number of 
+# Note that other process limits mean that unlimited connections
+# are not really possible. Typically the default maximum number of
 # connections possible is around 1024.
 #max_connections -1
 
@@ -123,11 +123,11 @@ user mosquitto
 # Persistence
 # =================================================================
 
-# If persistence is enabled, save the in-memory database to disk 
-# every autosave_interval seconds. If set to 0, the persistence 
+# If persistence is enabled, save the in-memory database to disk
+# every autosave_interval seconds. If set to 0, the persistence
 # database will only be written when mosquitto exits. See also
 # autosave_on_changes.
-# Note that writing of the persistence database can be forced by 
+# Note that writing of the persistence database can be forced by
 # sending mosquitto a SIGUSR1 signal.
 #autosave_interval 1800
 
@@ -139,13 +139,13 @@ user mosquitto
 #autosave_on_changes false
 
 # Save persistent message data to disk (true/false).
-# This saves information about all messages, including 
-# subscriptions, currently in-flight messages and retained 
+# This saves information about all messages, including
+# subscriptions, currently in-flight messages and retained
 # messages.
 # retained_persistence is a synonym for this option.
 persistence false
 
-# The filename to use for the persistent database, not including 
+# The filename to use for the persistent database, not including
 # the path.
 #persistence_file mosquitto.db
 
@@ -159,17 +159,17 @@ persistence false
 # Logging
 # =================================================================
 
-# Places to log to. Use multiple log_dest lines for multiple 
+# Places to log to. Use multiple log_dest lines for multiple
 # logging destinations.
 # Possible destinations are: stdout stderr syslog topic file
 #
 # stdout and stderr log to the console on the named output.
 #
-# syslog uses the userspace syslog facility which usually ends up 
+# syslog uses the userspace syslog facility which usually ends up
 # in /var/log/messages or similar.
 #
-# topic logs to the broker topic '$SYS/broker/log/<severity>', 
-# where severity is one of D, E, W, N, I, M which are debug, error, 
+# topic logs to the broker topic '$SYS/broker/log/<severity>',
+# where severity is one of D, E, W, N, I, M which are debug, error,
 # warning, notice, information and message. Message type severity is used by
 # the subscribe/unsubscribe log_types and publishes log messages to
 # $SYS/broker/log/M/susbcribe or $SYS/broker/log/M/unsubscribe.
@@ -193,7 +193,7 @@ log_dest file mosquitto.log
 
 # Types of messages to log. Use multiple log_type lines for logging
 # multiple types of messages.
-# Possible types are: debug, error, warning, notice, information, 
+# Possible types are: debug, error, warning, notice, information,
 # none, subscribe, unsubscribe, websockets, all.
 # Note that debug type messages are for decoding the incoming/outgoing
 # network packets. They are not logged in "topics".
@@ -354,8 +354,7 @@ listener 1883 INADDR_ANY mqttsn
         """
         Simple gateway config
         """
-        cfg ="""
-#!/bin/sh
+        cfg ="""#!/bin/sh
 if [ -e /opt/paho.mqtt.testing/interoperability/startbroker.py ]; then
   python3 /opt/paho.mqtt.testing/interoperability/startbroker.py -c udp.conf > pahoBroker.log 2>&1 &
 else
@@ -381,7 +380,7 @@ class MqttSnTools(CoreService):
     dirs = ()
     # generated files (without a full path this file goes in the node's dir,
     #  e.g. /tmp/pycore.12345/n1.conf/)
-    configs = ("mqtt-sn-tools.conf","mqtt-sn-tools-launch.sh",)
+    configs = ("mqtt-sn-tools.conf","message.txt","mqtt-sn-tools-launch.sh",)
     # list of startup commands, also may be generated during startup
     startup = ("bash mqtt-sn-tools-launch.sh mqtt-sn-tools.conf",)
     # list of shutdown commands
@@ -392,6 +391,8 @@ class MqttSnTools(CoreService):
         if filename == cls.configs[0]:
             return cls.generate_MqttSnTools_config(node)
         if filename == cls.configs[1]:
+            return cls.generate_MqttSnTools_message(node)
+        if filename == cls.configs[2]:
             return cls.generate_MqttSnTools_launch(node)
 
     @classmethod
@@ -399,7 +400,15 @@ class MqttSnTools(CoreService):
         """
         Send a message every 5 seconds
         """
-        cfg ="5 10.0.0.10 1883 aa 1+RANDOM%30"
+        cfg ="5 10.0.1.1 1883 ${NODE_NAME:0:2} message.txt"
+        return cfg
+
+    @classmethod
+    def generate_MqttSnTools_message(cls, node):
+        """
+        Message to send
+        """
+        cfg ="Hello World"
         return cfg
 
     @classmethod
@@ -417,10 +426,17 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
     host=${config[1]}
     port=${config[2]}
     topic=${config[3]}
+    export topic
+    topic=$(bash -c "echo ${topic}")
     data=${config[4]}
     if [ -n "$seconds" ]; then
         while true; do
-            message=$(($data))
+            if [ -e $data ]; then
+                message=$(cat $data)
+            else
+                export $data
+                message=$(bash -c "echo ${data}")
+            fi
             /opt/mqtt-sn-tools/mqtt-sn-pub -d -h $host -p $port -q -1 -t $topic -m "$message"
             sleep $seconds
        done
@@ -428,6 +444,3 @@ while IFS='' read -r line || [[ -n "$line" ]]; do
 done < "$configfile"
 """
         return cfg
-
-    
-    
