@@ -161,59 +161,6 @@ def get_downstream_l2_devices(node):
     return l2_devices, all_endpoints
 
 
-def create_link_element(link_data):
-    link_element = etree.Element("link")
-    add_attribute(link_element, "node_one", link_data.node1_id)
-    add_attribute(link_element, "node_two", link_data.node2_id)
-
-    # check for interface one
-    interface_one = etree.Element("interface_one")
-    add_attribute(interface_one, "id", link_data.interface1_id)
-    add_attribute(interface_one, "name", link_data.interface1_name)
-    add_attribute(interface_one, "mac", link_data.interface1_mac)
-    add_attribute(interface_one, "ip4", link_data.interface1_ip4)
-    add_attribute(interface_one, "ip4_mask", link_data.interface1_ip4_mask)
-    add_attribute(interface_one, "ip6", link_data.interface1_ip6)
-    add_attribute(interface_one, "ip6_mask", link_data.interface1_ip6_mask)
-    if interface_one.items():
-        link_element.append(interface_one)
-
-    # check for interface two
-    interface_two = etree.Element("interface_two")
-    add_attribute(interface_two, "id", link_data.interface2_id)
-    add_attribute(interface_two, "name", link_data.interface2_name)
-    add_attribute(interface_two, "mac", link_data.interface2_mac)
-    add_attribute(interface_two, "ip4", link_data.interface2_ip4)
-    add_attribute(interface_two, "ip4_mask", link_data.interface2_ip4_mask)
-    add_attribute(interface_two, "ip6", link_data.interface2_ip6)
-    add_attribute(interface_two, "ip6_mask", link_data.interface2_ip6_mask)
-    if interface_two.items():
-        link_element.append(interface_two)
-
-    # check for options
-    options = etree.Element("options")
-    add_attribute(options, "delay", link_data.delay)
-    add_attribute(options, "bandwidth", link_data.bandwidth)
-    add_attribute(options, "per", link_data.per)
-    add_attribute(options, "dup", link_data.dup)
-    add_attribute(options, "jitter", link_data.jitter)
-    add_attribute(options, "mer", link_data.mer)
-    add_attribute(options, "burst", link_data.burst)
-    add_attribute(options, "mburst", link_data.mburst)
-    add_attribute(options, "type", link_data.link_type)
-    add_attribute(options, "gui_attributes", link_data.gui_attributes)
-    add_attribute(options, "unidirectional", link_data.unidirectional)
-    add_attribute(options, "emulation_id", link_data.emulation_id)
-    add_attribute(options, "network_id", link_data.network_id)
-    add_attribute(options, "key", link_data.key)
-    add_attribute(options, "opaque", link_data.opaque)
-    add_attribute(options, "session", link_data.session)
-    if options.items():
-        link_element.append(options)
-
-    return link_element
-
-
 class Endpoint(object):
     def __init__(self, network, interface, _type=None, _id=None, l2devport=None, params=None):
         self.network = network
@@ -440,13 +387,13 @@ class NetworkElement(NodeElement):
 class CoreXmlWriter(object):
     def __init__(self, session):
         self.session = session
-        self.scenario = None
+        self.scenario = etree.Element("scenario")
         self.networks = None
         self.devices = None
+        self.write_session()
 
-    def write(self, file_name):
+    def write_session(self):
         # generate xml content
-        self.scenario = etree.Element("scenario", name=file_name)
         links = self.write_nodes()
         self.write_links(links)
         self.write_mobility_configs()
@@ -457,6 +404,9 @@ class CoreXmlWriter(object):
         self.write_session_options()
         self.write_session_metadata()
         self.write_default_services()
+
+    def write(self, file_name):
+        self.scenario.set("name", file_name)
 
         # write out generated xml
         xml_tree = etree.ElementTree(self.scenario)
@@ -625,7 +575,7 @@ class CoreXmlWriter(object):
             if link_data.interface1_id is None and link_data.interface2_id is None:
                 continue
 
-            link_element = create_link_element(link_data)
+            link_element = self.create_link_element(link_data)
             link_elements.append(link_element)
 
         if link_elements.getchildren():
@@ -634,6 +584,76 @@ class CoreXmlWriter(object):
     def write_device(self, node):
         device = DeviceElement(self.session, node)
         self.devices.append(device.element)
+
+    def create_link_element(self, link_data):
+        link_element = etree.Element("link")
+        add_attribute(link_element, "node_one", link_data.node1_id)
+        add_attribute(link_element, "node_two", link_data.node2_id)
+
+        # check for interface one
+        if link_data.interface1_id is not None:
+            interface_one = etree.Element("interface_one")
+            node = self.session.get_object(link_data.node1_id)
+            node_interface = node.netif(link_data.interface1_id)
+
+            add_attribute(interface_one, "id", link_data.interface1_id)
+            add_attribute(interface_one, "name", node_interface.name)
+            add_attribute(interface_one, "mac", link_data.interface1_mac)
+            add_attribute(interface_one, "ip4", link_data.interface1_ip4)
+            add_attribute(interface_one, "ip4_mask", link_data.interface1_ip4_mask)
+            add_attribute(interface_one, "ip6", link_data.interface1_ip6)
+            add_attribute(interface_one, "ip6_mask", link_data.interface1_ip6_mask)
+
+            # check if emane interface
+            if nodeutils.is_node(node_interface.net, NodeTypes.EMANE):
+                nem = node_interface.net.getnemid(node_interface)
+                add_attribute(interface_one, "nem", nem)
+
+            link_element.append(interface_one)
+
+        # check for interface two
+        if link_data.interface2_id is not None:
+            interface_two = etree.Element("interface_two")
+            node = self.session.get_object(link_data.node2_id)
+            node_interface = node.netif(link_data.interface2_id)
+
+            add_attribute(interface_two, "id", link_data.interface2_id)
+            add_attribute(interface_two, "name", node_interface.name)
+            add_attribute(interface_two, "mac", link_data.interface2_mac)
+            add_attribute(interface_two, "ip4", link_data.interface2_ip4)
+            add_attribute(interface_two, "ip4_mask", link_data.interface2_ip4_mask)
+            add_attribute(interface_two, "ip6", link_data.interface2_ip6)
+            add_attribute(interface_two, "ip6_mask", link_data.interface2_ip6_mask)
+
+            # check if emane interface
+            if nodeutils.is_node(node_interface.net, NodeTypes.EMANE):
+                nem = node_interface.net.getnemid(node_interface)
+                add_attribute(interface_two, "nem", nem)
+
+            link_element.append(interface_two)
+
+        # check for options
+        options = etree.Element("options")
+        add_attribute(options, "delay", link_data.delay)
+        add_attribute(options, "bandwidth", link_data.bandwidth)
+        add_attribute(options, "per", link_data.per)
+        add_attribute(options, "dup", link_data.dup)
+        add_attribute(options, "jitter", link_data.jitter)
+        add_attribute(options, "mer", link_data.mer)
+        add_attribute(options, "burst", link_data.burst)
+        add_attribute(options, "mburst", link_data.mburst)
+        add_attribute(options, "type", link_data.link_type)
+        add_attribute(options, "gui_attributes", link_data.gui_attributes)
+        add_attribute(options, "unidirectional", link_data.unidirectional)
+        add_attribute(options, "emulation_id", link_data.emulation_id)
+        add_attribute(options, "network_id", link_data.network_id)
+        add_attribute(options, "key", link_data.key)
+        add_attribute(options, "opaque", link_data.opaque)
+        add_attribute(options, "session", link_data.session)
+        if options.items():
+            link_element.append(options)
+
+        return link_element
 
 
 class CoreXmlReader(object):
@@ -747,7 +767,7 @@ class CoreXmlReader(object):
 
             directory_elements = service_configuration.find("directories")
             if directory_elements is not None:
-                service.directories = tuple(x.text for x in directory_elements.iterchildren())
+                service.dirs = tuple(x.text for x in directory_elements.iterchildren())
 
             startup_elements = service_configuration.find("startups")
             if startup_elements is not None:
