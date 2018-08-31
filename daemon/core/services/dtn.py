@@ -187,11 +187,11 @@ class DtnSink(CoreService):
     dirs = ()
     # generated files (without a full path this file goes in the node's dir,
     #  e.g. /tmp/pycore.12345/n1.conf/)
-    configs = ("dtnsink.conf","dtnsink.sh",)
+    configs = ("dtnsink.conf","dtnsink.sh","dtntrigger-launch.sh",)
     # this controls the starting order vs other enabled services
     startindex = 56
     # list of startup commands, also may be generated during startup
-    startup = ("dtntrigger mqtt dtnsink.sh",)
+    startup = ("bash dtntrigger-launch.sh",)
     # list of shutdown commands
     shutdown = ("pkill dtntrigger",)
 
@@ -200,6 +200,8 @@ class DtnSink(CoreService):
         if filename == cls.configs[0]:
             return cls.generate_dtnsink_config(node)
         if filename == cls.configs[1]:
+            return cls.generate_dtnsink_script(node)
+        if filename == cls.configs[2]:
             return cls.generate_dtnsink_launch(node)
 
     @classmethod
@@ -210,11 +212,12 @@ class DtnSink(CoreService):
         cfg ="""
 # pipe to sink the data into
 PIPE=dtnpipe
+HOOK=mqtt
 """
         return cfg
 
     @classmethod
-    def generate_dtnsink_launch(cls, node):
+    def generate_dtnsink_script(cls, node):
         """
         Set up the DTN sink
         """
@@ -231,8 +234,158 @@ if [[ ! -p $PIPE ]]; then
 fi
 
 while IFS='' read -r payload || [[ -n "$payload" ]]; do
-    echo "{\"source\":\"${B_SOURCE}\", \"timestamp\":\"${B_TIMESTAMP}\", \"sequencenumber\":\"${B_SEQUENCENUMBER}\", \"payload\":\"${payload}\"}"  >> $PIPE
+    echo "{\\"source\\":\\"${B_SOURCE}\\", \\"timestamp\\":\\"${B_TIMESTAMP}\\", \\"sequencenumber\\":\\"${B_SEQUENCENUMBER}\\", \\"payload\\":\\"${payload}\\"}"  >> $PIPE
 done
 """
         return cfg
+
+    @classmethod
+    def generate_dtnsink_launch(cls, node):
+        """
+        Set up the DTN sink
+        """
+        cfg = """#!/bin/bash
+source dtnsink.conf
+chmod u+x $PWD/dtnsink.sh
+dtntrigger $HOOK $PWD/dtnsink.sh > dtntrigger.log 2>&1 &
+"""
+        return cfg
+    
+
+class DtnSource(CoreService):
+    """
+    This will create a DTN source for messages
+    """
+    # a unique name is required, without spaces
+    name = "DTN_Source"
+    # you can create your own group here
+    group = "DTN"
+    # list executables that this service requires
+    executables = ('/usr/local/bin/dtnsend',)
+    # list of other services this service depends on
+    dependencies = ()
+    # per-node directories
+    dirs = ()
+    # generated files (without a full path this file goes in the node's dir,
+    #  e.g. /tmp/pycore.12345/n1.conf/)
+    configs = ("dtnmessage.conf","dtnmessage.py",)
+    # this controls the starting order vs other enabled services
+    startindex = 56
+    # list of startup commands, also may be generated during startup
+    startup = ("python3 dtnmessage.py",)
+    # list of shutdown commands
+    shutdown = ()
+
+    @classmethod
+    def generate_config(cls, node, filename):
+        if filename == cls.configs[0]:
+            return cls.generate_dtnsource_config(node)
+        if filename == cls.configs[1]:
+            return cls.generate_dtnsource_script(node)
+
+    @classmethod
+    def generate_dtnsource_config(cls, node):
+        """
+        Simple dtnsource config
+        """
+        cfg ="""
+[global]
+messages=sensordata
+#,capability
+
+[sensordata]
+endpoint=dtn://fwdhq/mqtt
+topic=$NODE_NAME
+content=random.randint(1,30)
+frequency=5
+
+[capability]
+endpoint=dtn://ship/mqtt
+topic=$NODE_NAME
+content=open('message.txt').read()
+frequency=15
+"""
+        return cfg
+
+    @classmethod
+    def generate_dtnsource_script(cls, node):
+        """
+        Set up the DTN source
+        """
+        cfg = """
+import os
+import struct
+import base64
+import sys
+import configparser
+import subprocess as sp
+import argparse
+import random
+import sched, time
+
+def process_message(message_config, scheduler):
+    payload = str(eval(message_config['content']))
+    plen = len(payload)
+    topic = message_config['topic']
+    if '$' in topic:
+      topic = os.environ[topic[1:]]
+    if len(topic)>2:
+      print('truncating topic to 2 chars', file=sys.stderr)
+      topic = topic[:2]
+      
+    # now build up the message parts
+    message_len   = 7 + plen
+    message_type  = 0x0c
+    message_flags = 0x62
+    message_topic = topic.encode('utf-8')
+    message_id    = 0x0000
+    message_data  = payload.encode('utf-8')
+
+    buffer = struct.pack('BBB', message_len, message_type, message_flags)+message_topic+struct.pack('H',message_id)+message_data
+
+#    print(buffer,end='')
+    encoded = base64.b64encode(buffer)
+    command = ['dtnsend',message_config['endpoint']]
+
+    process = sp.Popen(command, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
+    process.stdin.write(encoded)
+
+    outs,errs = process.communicate()
+    scheduler.enter(int(message_config['frequency']), 2, process_message, kwargs={'message_config':message_config, 'scheduler':s})
+    
+
+parser = argparse.ArgumentParser(description='send MQTT-SN qos -1 style messages to DTN endpoint')
+parser.add_argument('--config',
+                    '-c',
+                    nargs='+',
+                    default='dtnmessage.conf',
+                    metavar='file',
+                    help='an ini-style file containing configuration options')
+
+args = parser.parse_args()
+
+config = configparser.SafeConfigParser()
+config.read(args.config)
+
+if not config.has_option('global', 'messages'):
+  print('global section in config file must define a list of messages to write using the messages option')
+
+messages = config.get('global','messages').split(',')
+
+s = sched.scheduler(time.time, time.sleep)
+
+#kick off the message generators
+for message in messages:
+  if not config.has_section(message):
+    print('you need to define a section for your %s message'%message)
+  else:
+    message_config=dict(config.items(message))
+    s.enter(int(message_config['frequency']), 2, process_message, kwargs={'message_config':message_config, 'scheduler':s})
+
+s.run()
+
+
+"""
+        return cfg
+
     
