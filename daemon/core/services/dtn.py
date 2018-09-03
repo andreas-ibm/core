@@ -272,7 +272,7 @@ class DtnSource(CoreService):
     # this controls the starting order vs other enabled services
     startindex = 56
     # list of startup commands, also may be generated during startup
-    startup = ("python3 dtnmessage.py",)
+    startup = ("python3 -E dtnmessage.py",)
     # list of shutdown commands
     shutdown = ()
 
