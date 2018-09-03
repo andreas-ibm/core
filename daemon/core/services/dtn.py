@@ -261,7 +261,7 @@ class DtnSource(CoreService):
     # you can create your own group here
     group = "DTN"
     # list executables that this service requires
-    executables = ('/usr/local/bin/dtnsend',)
+    executables = ()
     # list of other services this service depends on
     dependencies = ()
     # per-node directories
