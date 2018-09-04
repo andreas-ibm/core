@@ -74,6 +74,16 @@ routing = epidemic
 #
 routing_forwarding = yes
 
+#
+# The timeout for idle TCP connection in seconds. 0 = disabled
+tcp_idle_timeout = 5
+
+#
+# Keep-alive time-out for connections
+# (e.g. TCP-CL)
+#
+keepalive_timeout = 5
+
 
 
 """
